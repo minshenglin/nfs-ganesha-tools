@@ -26,30 +26,7 @@ def check_path(var):
 
     return var
 
-def connect_cephfs():
-    cluster = rados.Rados(conffile='/etc/ceph/ceph.conf')
-    libcephfs = cephfs.LibCephFS()
-    libcephfs.create_with_rados(cluster)
-
-    libcephfs.init()
-    libcephfs.mount()
-
-    return libcephfs
-
-def to_xattr_name(var):
-
-    var = var.lower()
-
-    if var == "bytes":
-        return 'ceph.quota.max_bytes'
-    elif var == "files":
-        return 'ceph.quota.max_files'
-    else:
-        print "Quota type is illegal:", var
-        exit(errno.EINVAL)
-
-def to_xattr_value(var):
-
+def to_value(var):
     try: 
         int(var)
         return var
@@ -58,26 +35,80 @@ def to_xattr_value(var):
         exit(errno.EINVAL)
 
 def check_vars():
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 4:
         print_help() 
         exit(errno.EINVAL)
 
-    return
+class CephHandler():
+    def __init__(self):
+        self.cluster = rados.Rados(conffile='/etc/ceph/ceph.conf')
+        self.cluster.connect()
+        self.fs = CephfsHandler(self.cluster)
+
+    def createPool(self, name):
+        pools = self.cluster.list_pools()
+        if name in pools:
+            return
+
+        self.cluster.create_pool(name)
+
+    def read(self, pool, name):
+        ioctx = self.cluster.open_ioctx(pool)
+        content = ioctx.read(name)
+        ioctx.close()
+        return content
+
+    def write(self, pool, name, content):
+        ioctx = self.cluster.open_ioctx(pool)
+        ioctx.write_full(name, content)
+        ioctx.close()
+
+class CephfsHandler():
+    def __init__(self, cluster):
+        self.fs = cephfs.LibCephFS()
+        self.fs.create_with_rados(cluster)
+        self.fs.init()
+        self.fs.mount()
+
+    def mkdir(self, path, mode=0o755):
+        try:
+            self.fs.mkdir(path, mode)
+            return True
+        except cephfs.ObjectExists:
+            return True
+        except Exception:
+            return False
+
+    def setQuotaBytes(self, path, value):
+        return self.__setQuota(path, "bytes", value)
+
+    def __setQuota(self, path, kind, value): 
+        if kind not in ["bytes", "files"]:
+            return False
+
+        name = "ceph.quota.max_"  + kind
+        self.fs.setxattr(path=path, name=name, value=value, flags=xattr.XATTR_CREATE)
+        return True
+
+    def sync(self):
+        self.fs.sync_fs()
 
 def print_help():
-    print "Tool for create cephfs folder and set quota"
-    print "Usage:", sys.argv[0], "create", "<cephfs path (ex: /test)>", "<quota type (bytes/files)>", "<quota value>" 
+    print "Tool for create cephfs folder and set max bytes quota"
+    print "Usage:", sys.argv[0], "create", "<cephfs path (ex: /test)>", "<quota value (bytes)>" 
 
 if __name__ == '__main__':
 
     check_root()
     check_vars()
-    libcephfs = connect_cephfs()
+
     action = check_action(sys.argv[1])
     path = check_path(sys.argv[2])
-    xattr_name = to_xattr_name(sys.argv[3])
-    xattr_value = to_xattr_value(sys.argv[4])
+    value = to_value(sys.argv[3])
 
-    libcephfs.mkdir(path, 0o755)
-    libcephfs.setxattr(path=path, name=xattr_name, value=xattr_value, flags=xattr.XATTR_CREATE)
-    libcephfs.sync_fs()
+    ceph = CephHandler()
+    ceph.fs.mkdir(path)
+    ceph.fs.setQuotaBytes(path, value)
+    ceph.fs.sync()
+
+    ceph.createPool("nfs-ganesha")
