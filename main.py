@@ -4,6 +4,7 @@ import xattr
 import errno
 import os
 import sys
+import ganesha 
 
 def check_root():
     if os.geteuid() == 0:
@@ -100,15 +101,32 @@ def print_help():
 if __name__ == '__main__':
 
     check_root()
+    """
     check_vars()
 
     action = check_action(sys.argv[1])
     path = check_path(sys.argv[2])
     value = to_value(sys.argv[3])
+    """
 
     ceph = CephHandler()
-    ceph.fs.mkdir(path)
-    ceph.fs.setQuotaBytes(path, value)
-    ceph.fs.sync()
+    #ceph.fs.mkdir(path)
+    #ceph.fs.setQuotaBytes(path, value)
+    #ceph.fs.sync()
 
-    ceph.createPool("nfs-ganesha")
+    #ceph.createPool("nfs-ganesha")
+    #fsal = ganesha.CephfsFsal()
+    client = ganesha.Client(["192.168.15.100"], 
+        access_type=ganesha.AccessType.RW, 
+        squash=ganesha.Squash.No_Root_Squash)
+
+    client2 = ganesha.Client(["192.168.15.0/24"], 
+        access_type=ganesha.AccessType.RO, 
+        squash=ganesha.Squash.Root_Squash)
+
+    fsal = ganesha.CephfsFsal()
+    #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
+    export = ganesha.Export(1234, "/test", [client, client2], fsal)
+
+    ceph.write("nfs-ganesha", "export", str(export))
+    print ceph.read("nfs-ganesha", "export")
