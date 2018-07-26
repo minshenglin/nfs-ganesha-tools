@@ -1,0 +1,6 @@
+RADOS_URLS {
+        ceph_conf = "/etc/ceph/ceph.conf";
+        userid = "admin";
+}
+
+%url "rados://nfs-ganesha/export"
