@@ -7,7 +7,7 @@ app = Flask(__name__)
 #app.run(port=8080, debug=True)
 
 @app.route('/api/v1.0/nfs/config', methods=['GET'])
-def get_task():
+def get_config():
     ceph_handler = CephHandler()
     content = ceph_handler.read("nfs-ganesha", "export")
     config = GaneshaConfig.parser(content) 
