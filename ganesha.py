@@ -21,6 +21,11 @@ class Export():
         s += "}"
         return s
 
+    def dict(self):
+        client_dict = [c.dict() for c in self.clients]
+        return {"export_id": self.export_id, "path": self.path, "pseudo": self.pseudo, "protocols": self.protocols, 
+                   "transports": self.transports, "client": client_dict, "fsal": self.fsal.dict()}
+
     @staticmethod
     def parser(content):
         result = re.search("Export_Id=(.+?);Path=(.+?);Pseudo=(.+?);Protocols=(.+?);Transports=(.+?);", content)
@@ -53,6 +58,9 @@ class CephfsFsal():
     def __str__(self):
         return "Name=CEPH;"
 
+    def dict(self):
+        return {"name": "ceph"}
+
 class RgwFsal():
     def __init__(self, user_id, access_key, secret_key):
         self.user_id = user_id
@@ -74,6 +82,9 @@ class Client():
         return "Clients=%s;Squash=%s;Access_Type=%s;" % \
 		(clients, self.squash, self.access_type)
 
+    def dict(self):
+        return {"clients": self.cidrs, "access_type": self.access_type, "squash": self.squash}
+
     @staticmethod
     def parser(content):
         result = re.search("Clients=(.+?);Squash=(.+?);Access_Type=(.+?);", content)
@@ -88,6 +99,9 @@ class GaneshaConfig():
 
     def __str__(self):
         return "\n".join(map(str, self.exports))
+
+    def dict(self):
+        return [e.dict() for e in self.exports]
 
     @staticmethod
     def parser(content):
@@ -105,4 +119,7 @@ if __name__ == '__main__':
     export = Export(1234, "/test", [client, client2], fsal, pseudo="/cephfs/test")
     print export
 
-    print GaneshaConfig.parser(str(export))
+    config = GaneshaConfig.parser(str(export))
+
+    import json
+    print json.dumps(config.dict())
