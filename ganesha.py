@@ -105,6 +105,9 @@ class GaneshaConfig():
 
     @staticmethod
     def parser(content):
+        if content is None or content == "":
+           return GaneshaConfig([])
+
         exports = []
         for line in content.split('\n'):
            exports.append(Export.parser(line))
@@ -117,9 +120,8 @@ if __name__ == '__main__':
     fsal = CephfsFsal()
     #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
     export = Export(1234, "/test", [client, client2], fsal, pseudo="/cephfs/test")
-    print export
 
-    config = GaneshaConfig.parser(str(export))
+    config = GaneshaConfig.parser("")
 
     import json
     print json.dumps(config.dict())

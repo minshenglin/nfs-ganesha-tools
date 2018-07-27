@@ -20,7 +20,18 @@ class CephHandler():
         self.cluster.create_pool(name)
 
     def read(self, pool, name):
+        pools = self.cluster.list_pools()
+        if pool not in pools:
+            return None
+
         ioctx = self.cluster.open_ioctx(pool)
+        objs = ioctx.list_objects()
+
+        # if object not in pool
+        if name not in map(lambda obj: obj.key, objs): 
+            ioctx.close()
+            return None
+        
         content = ioctx.read(name)
         ioctx.close()
         return content
