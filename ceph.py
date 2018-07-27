@@ -6,40 +6,6 @@ import os
 import sys
 import ganesha 
 
-def check_root():
-    if os.geteuid() == 0:
-        return
-    
-    print "Only Root can execute this script."
-    exit(errno.EACCES)
-
-def check_action(var):
-    if var.lower() != 'create':
-        print "Action is not specific."
-        exit(errno.EINVAL)
-
-    return var
-
-def check_path(var):
-    if var[0] != '/':   # cephfs path should start from root (/)
-        print 'Path is not illegal:', var
-        exit(errno.EINVAL)
-
-    return var
-
-def to_value(var):
-    try: 
-        int(var)
-        return var
-    except ValueError:
-        print "Quota Value is illegal:", var
-        exit(errno.EINVAL)
-
-def check_vars():
-    if len(sys.argv) != 4:
-        print_help() 
-        exit(errno.EINVAL)
-
 class CephHandler():
     def __init__(self):
         self.cluster = rados.Rados(conffile='/etc/ceph/ceph.conf')
@@ -94,28 +60,9 @@ class CephfsHandler():
     def sync(self):
         self.fs.sync_fs()
 
-def print_help():
-    print "Tool for create cephfs folder and set max bytes quota"
-    print "Usage:", sys.argv[0], "create", "<cephfs path (ex: /test)>", "<quota value (bytes)>" 
-
 if __name__ == '__main__':
 
-    check_root()
-    """
-    check_vars()
-
-    action = check_action(sys.argv[1])
-    path = check_path(sys.argv[2])
-    value = to_value(sys.argv[3])
-    """
-
     ceph = CephHandler()
-    #ceph.fs.mkdir(path)
-    #ceph.fs.setQuotaBytes(path, value)
-    #ceph.fs.sync()
-
-    #ceph.createPool("nfs-ganesha")
-    #fsal = ganesha.CephfsFsal()
     client = ganesha.Client(["192.168.15.100"], 
         access_type=ganesha.AccessType.RW, 
         squash=ganesha.Squash.No_Root_Squash)
