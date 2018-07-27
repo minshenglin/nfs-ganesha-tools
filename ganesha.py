@@ -1,15 +1,18 @@
 import re
 
 class Export():
-    def __init__(self, export_id, path, clients, fsal):
+    def __init__(self, export_id, path, clients, fsal, pseudo=None, protocols="4", transports="TCP"):
         self.export_id = export_id
         self.path = path
+        self.pseudo = pseudo if pseudo is not None else path
+        self.protocols = protocols
+        self.transports = transports
         self.clients = clients
         self.fsal = fsal
 
     def __str__(self):
-        s = "Export{Export_Id=%s;Path=%s;Pseudo=%s;Protocols=4;Transports=TCP;" % \
-            (self.export_id, self.path, self.path)
+        s = "Export{Export_Id=%s;Path=%s;Pseudo=%s;Protocols=%s;Transports=%s;" % \
+            (self.export_id, self.path, self.pseudo, self.protocols, self.transports)
 
         for c in self.clients:
             s += "CLIENT{%s}" % c
@@ -20,18 +23,19 @@ class Export():
 
     @staticmethod
     def parser(content):
-        export_id = re.findall("Export_Id=(?P<v>.+?);",content)[0]
-        path = re.findall("Path=(?P<v>.+?);",content)[0]
-        pseudo = re.findall("Pseudo=(?P<v>.+?);",content)[0]
-        protocols = re.findall("Protocols=(?P<v>.+?);",content)[0]
-        transports = re.findall("Transports=(?P<v>.+?);",content)[0]
+        result = re.search("Export_Id=(.+?);Path=(.+?);Pseudo=(.+?);Protocols=(.+?);Transports=(.+?);", content)
+        export_id = result.group(1)
+        path = result.group(2)
+        pseudo = result.group(3)
+        protocols = result.group(4)
+        transports = result.group(5)
 
         fsal = CephfsFsal()
         clients = []
         for c in re.findall("CLIENT{(?P<v>.+?)}", content):
             clients.append(Client.parser(c))
 
-        return Export(export_id, path, clients, fsal)
+        return Export(export_id, path, clients, fsal, pseudo=pseudo, protocols=protocols, transports=transports)
 
 class AccessType():
     RW = "RW"
@@ -72,9 +76,10 @@ class Client():
 
     @staticmethod
     def parser(content):
-        cidrs = re.findall("Clients=(?P<v>.+?);",content)[0].split(',')
-        squash = re.findall("Squash=(?P<v>.+?);",content)[0]
-        access_type = re.findall("Access_Type=(?P<v>.+?);",content)[0]
+        result = re.search("Clients=(.+?);Squash=(.+?);Access_Type=(.+?);", content)
+        cidrs = result.group(1).split(',')
+        squash = result.group(2)
+        access_type = result.group(3)
         return Client(cidrs, access_type=access_type, squash=squash)
 
 class GaneshaConfig():
@@ -97,7 +102,7 @@ if __name__ == '__main__':
     client2 = Client(["192.168.15.0/24"], access_type=AccessType.RO, squash=Squash.Root_Squash) 
     fsal = CephfsFsal()
     #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
-    export = Export(1234, "/test", [client, client2], fsal)
+    export = Export(1234, "/test", [client, client2], fsal, pseudo="/cephfs/test")
+    print export
 
-    s = str(export) + '\n' + str(export)
-    print GaneshaConfig.parser(s)
+    print GaneshaConfig.parser(str(export))
