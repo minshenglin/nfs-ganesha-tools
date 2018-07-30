@@ -83,7 +83,7 @@ if __name__ == '__main__':
         squash=ganesha.Squash.Root_Squash)
 
     fsal = ganesha.CephfsFsal()
-    #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
+    fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
     export = ganesha.Export(1234, "/test", [client, client2], fsal)
     export2 = ganesha.Export(7891, "/test2", [client, client2], fsal)
     config = ganesha.GaneshaConfig([export, export2])
