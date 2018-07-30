@@ -42,6 +42,22 @@ class Export():
 
         return Export(export_id, path, clients, fsal, pseudo=pseudo, protocols=protocols, transports=transports)
 
+    @staticmethod
+    def parserJson(content):
+        export_id = content['export_id']
+        path = content['path']
+        pseudo = content['pseudo']
+        protocols = content['protocols']
+        transports = content['transports']
+
+        fsal = CephfsFsal()
+        clients = []
+        for c in content['client']:
+            clients.append(Client.parserJson(c))
+
+        return Export(export_id, path, clients, fsal, pseudo=pseudo, protocols=protocols, transports=transports)
+
+
 class AccessType():
     RW = "RW"
     RO = "RO"
@@ -93,6 +109,13 @@ class Client():
         access_type = result.group(3)
         return Client(cidrs, access_type=access_type, squash=squash)
 
+    @staticmethod
+    def parserJson(content):
+        cidrs = content['clients']
+        squash = content['squash']
+        access_type = content['access_type']
+        return Client(cidrs, access_type=access_type, squash=squash)
+
 class GaneshaConfig():
     def __init__(self, exports):
         self.exports = exports
@@ -101,7 +124,7 @@ class GaneshaConfig():
         return "\n".join(map(str, self.exports))
 
     def dict(self):
-        return [e.dict() for e in self.exports]
+        return {"export": [e.dict() for e in self.exports]}
 
     @staticmethod
     def parser(content):
@@ -114,14 +137,25 @@ class GaneshaConfig():
 
         return GaneshaConfig(exports)
 
+    @staticmethod
+    def parserJson(content):
+        exports = []
+        for j in content['export']:
+            exports.append(Export.parserJson(j))
+
+        return GaneshaConfig(exports)
+
 if __name__ == '__main__':
     client = Client(["192.168.15.100"], access_type=AccessType.RW, squash=Squash.No_Root_Squash) 
     client2 = Client(["192.168.15.0/24"], access_type=AccessType.RO, squash=Squash.Root_Squash) 
     fsal = CephfsFsal()
     #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
     export = Export(1234, "/test", [client, client2], fsal, pseudo="/cephfs/test")
+    export2 = Export(6789, "/test2", [client, client2], fsal, pseudo="/cephfs/test2")
 
-    config = GaneshaConfig.parser("")
+    config = GaneshaConfig.parser(str(export) + "\n" + str(export2))
 
     import json
-    print json.dumps(config.dict())
+    content = config.dict()
+    print content
+    print GaneshaConfig.parserJson(content)
