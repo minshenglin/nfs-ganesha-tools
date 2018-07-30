@@ -85,6 +85,8 @@ if __name__ == '__main__':
     fsal = ganesha.CephfsFsal()
     #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
     export = ganesha.Export(1234, "/test", [client, client2], fsal)
+    export2 = ganesha.Export(7891, "/test2", [client, client2], fsal)
+    config = ganesha.GaneshaConfig([export, export2])
 
-    ceph.write("nfs-ganesha", "export", str(export))
+    ceph.write("nfs-ganesha", "export", str(config))
     print ceph.read("nfs-ganesha", "export")
