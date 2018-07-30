@@ -35,7 +35,9 @@ class Export():
         protocols = result.group(4)
         transports = result.group(5)
 
-        fsal = CephfsFsal()
+        c = re.findall("FSAL{(?P<v>.+?)}", content)[0]
+        fsal = Fsal.parser(c) 
+
         clients = []
         for c in re.findall("CLIENT{(?P<v>.+?)}", content):
             clients.append(Client.parser(c))
@@ -70,6 +72,21 @@ class Squash():
     Root_Squash = "Root_Squash"
     All_Squash = "All_Squash"
 
+class Fsal():
+    @staticmethod 
+    def parser(content):
+        if "name=ceph" in content.lower():
+            return CephfsFsal()
+
+        return RgwFsal.parser(content) 
+
+    @staticmethod
+    def parserJson(content):
+        if content['name'] == 'ceph':
+            return CephfsFsal()
+
+        return RgwFsal.parserJson(content)
+
 class CephfsFsal():
     def __str__(self):
         return "Name=CEPH;"
@@ -86,6 +103,25 @@ class RgwFsal():
     def __str__(self):
         return "Name=RGW;User_Id=%s;Access_Key_Id=%s;Secret_Access_Key=%s;" % \
             (self.user_id, self.access_key, self.secret_key)
+
+    def dict(self):
+        return {"name": "rgw", "user_id": self.user_id, "access_key_id": self.access_key, 
+            "secret_access_key": self.secret_key}
+
+    @staticmethod
+    def parser(content):
+        result = re.search("User_Id=(.+?);Access_Key_Id=(.+?);Secret_Access_Key=(.+?);", content)
+        user_id = result.group(1)
+        access_key = result.group(2)
+        secret_key = result.group(3)
+        return RgwFsal(user_id, access_key, secret_key)
+
+    @staticmethod
+    def parserJson(content):
+        user_id = content['user_id']
+        access_key = content['access_key_id']
+        secret_key = content['secret_access_key']
+        return RgwFsal(user_id, access_key, secret_key)
 
 class Client():
     def __init__(self, cidrs, access_type=AccessType.NONE, squash=Squash.Root_Squash): 
@@ -148,14 +184,15 @@ class GaneshaConfig():
 if __name__ == '__main__':
     client = Client(["192.168.15.100"], access_type=AccessType.RW, squash=Squash.No_Root_Squash) 
     client2 = Client(["192.168.15.0/24"], access_type=AccessType.RO, squash=Squash.Root_Squash) 
-    fsal = CephfsFsal()
-    #fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
-    export = Export(1234, "/test", [client, client2], fsal, pseudo="/cephfs/test")
-    export2 = Export(6789, "/test2", [client, client2], fsal, pseudo="/cephfs/test2")
+    ceph_fsal = CephfsFsal()
+    rgw_fsal = RgwFsal("nfs", "30GAEOGMTRX0SKWBAD19", "DGMsovPHztquIllIKDJNVvf931xke97ABLsobpTI")
+    export = Export(1234, "/test", [client, client2], ceph_fsal, pseudo="/cephfs/test")
+    export2 = Export(6789, "/test2", [client, client2], rgw_fsal, pseudo="/rgw/test2")
 
     config = GaneshaConfig.parser(str(export) + "\n" + str(export2))
+    print config
 
-    import json
-    content = config.dict()
-    print content
-    print GaneshaConfig.parserJson(content)
+    #import json
+    #content = config.dict()
+    #print content
+    #print GaneshaConfig.parserJson(content)
