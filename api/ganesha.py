@@ -84,14 +84,14 @@ class Fsal():
     @staticmethod 
     def parser(content):
         if isinstance(content, str):
-            is_ceph_fsal = "name=ceph" in content.lower()
-        elif isinstance(content, dict):
-            is_ceph_fsal = content['name'] == 'ceph'
+            name = re.findall("Name=(.+?);", content)[0]
+        if isinstance(content, dict):
+            name = content['name']
 
-        if is_ceph_fsal:
-            return CephfsFsal()
-
-        return RgwFsal.parser(content)
+        if name.lower() == 'ceph':
+            return CephfsFsal.parser(content)
+        else:
+            return RgwFsal.parser(content)
 
 class CephfsFsal():
     def __str__(self):
@@ -102,6 +102,10 @@ class CephfsFsal():
 
     def dict(self):
         return {"name": "ceph"}
+
+    @staticmethod
+    def parser(content):
+        return CephfsFsal()
 
 class RgwFsal():
     def __init__(self, user_id, access_key, secret_key):
@@ -130,7 +134,7 @@ class RgwFsal():
             user_id = result.group(1)
             access_key = result.group(2)
             secret_key = result.group(3)
-        elif isinstance(content, dict):
+        if isinstance(content, dict):
             user_id = content['user_id']
             access_key = content['access_key_id']
             secret_key = content['secret_access_key']
@@ -163,7 +167,7 @@ class Client():
             cidrs = result.group(1).split(',')
             squash = result.group(2)
             access_type = result.group(3)
-        elif isinstance(content, dict):
+        if isinstance(content, dict):
             cidrs = content['clients']
             squash = content['squash']
             access_type = content['access_type']
@@ -177,25 +181,21 @@ class GaneshaConfig():
     def __str__(self):
         return "\n".join(map(str, self.exports))
 
+    def __eq__(self, other):
+        return self.exports == other.exports
+
     def dict(self):
         return {"export": [e.dict() for e in self.exports]}
 
     @staticmethod
     def parser(content):
-        if content is None or content == "":
-           return GaneshaConfig([])
-
-        exports = []
-        for line in content.split('\n'):
-           exports.append(Export.parser(line))
-
-        return GaneshaConfig(exports)
-
-    @staticmethod
-    def parserJson(content):
-        exports = []
-        for j in content['export']:
-            exports.append(Export.parserJson(j))
+        if isinstance(content, str):
+            if content is None or content == "":
+                exports = []
+            else:
+                exports = [Export.parser(line) for line in content.split('\n')]
+        if isinstance(content, dict):
+                exports = [Export.parser(data) for data in content['export']]
 
         return GaneshaConfig(exports)
 
