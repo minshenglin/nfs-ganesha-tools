@@ -115,6 +115,7 @@ def __get_export_dict():
     fsal_dict = __get_rgw_fsal_dict()
     return {"export_id": "1234", "path": "/test", "pseudo": "/nfs/test", "protocols": "4",
             "transports": "TCP", "client": [client_dict], "fsal": fsal_dict}
+
 def __get_export_obj():
     clients = [__get_client_obj()]
     fsal = __get_rgw_fsal_obj()
@@ -141,3 +142,58 @@ def test_export_cast_from_dict_to_string():
     export = ganesha.Export.parser(d)
     s = __get_export_str()
     assert s == str(export)
+
+# test GaneshaConfig
+
+def __get_export_str_2():
+    client_str = __get_client_str()
+    fsal_str = __get_cephfs_fsal_str()
+    return "Export{Export_Id=5678;Path=/test2;Pseudo=/nfs/test2;Protocols=4;Transports=TCP;" + \
+           "CLIENT{%s}FSAL{%s}}" % (client_str, fsal_str)
+
+def __get_export_obj_2():
+    clients = [__get_client_obj()]
+    fsal = __get_cephfs_fsal_obj()
+    return ganesha.Export("5678", "/test2", clients, fsal, pseudo="/nfs/test2", protocols="4", transports="TCP")
+
+def __get_export_dict_2():
+    client_dict = __get_client_dict()
+    fsal_dict = __get_cephfs_fsal_dict()
+    return {"export_id": "5678", "path": "/test2", "pseudo": "/nfs/test2", "protocols": "4",
+            "transports": "TCP", "client": [client_dict], "fsal": fsal_dict}
+
+def __get_ganesha_config_str():
+    export1 = __get_export_str()
+    export2 = __get_export_str_2()
+    return export1 + '\n' + export2
+
+def __get_ganesha_config_obj():
+    export1 = __get_export_obj()
+    export2 = __get_export_obj_2()
+    return ganesha.GaneshaConfig([export1, export2])
+
+def __get_ganesha_config_dict():
+    export1 = __get_export_dict()
+    export2 = __get_export_dict_2()
+    return {"export": [export1, export2]}
+
+def test_ganesha_config_cast_from_str():
+    s = __get_ganesha_config_str()
+    config = ganesha.GaneshaConfig.parser(s)
+    assert config == __get_ganesha_config_obj()
+
+def test_ganesha_config_cast_from_dict():
+    d = __get_ganesha_config_dict()
+    config = ganesha.GaneshaConfig.parser(d)
+    assert config == __get_ganesha_config_obj()
+
+def test_export_cast_from_string_to_dict():
+    s = __get_ganesha_config_str()
+    config = ganesha.GaneshaConfig.parser(s)
+    assert config.dict() == __get_ganesha_config_dict()
+
+def test_export_cast_from_string_to_dict():
+    d = __get_ganesha_config_dict()
+    config = ganesha.GaneshaConfig.parser(d)
+    assert str(config) == __get_ganesha_config_str()
+
