@@ -26,7 +26,7 @@ def update_confg():
     if 'export' not in request.get_json():
         abort(400)
 
-    config = GaneshaConfig.parserJson(request.json)
+    config = GaneshaConfig.parser(request.json)
     ceph_handler.write("nfs-ganesha", "export", str(config))
     return jsonify(config.dict())
 
@@ -41,7 +41,7 @@ def verify(username, password):
     return username == usr and password == pw
 
 if __name__ == '__main__':
-    ceph_handler = CephHandler()
-    ceph_handler.write("nfs-ganesha", "username", "admin")
-    ceph_handler.write("nfs-ganesha", "password", "password")
+    #ceph_handler = CephHandler()
+    #ceph_handler.write("nfs-ganesha", "username", "admin")
+    #ceph_handler.write("nfs-ganesha", "password", "password")
     app.run(host='192.168.15.100', port=5000, debug=True)
