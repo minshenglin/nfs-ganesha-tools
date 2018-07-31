@@ -10,6 +10,16 @@ class Export():
         self.clients = clients
         self.fsal = fsal
 
+    def __eq__(self, other):
+        return type(self) == type(other) and \
+               self.export_id == other.export_id and \
+               self.path == other.path and \
+               self.pseudo == other.pseudo and \
+               self.protocols == other.protocols and \
+               self.transports == other.transports and \
+               self.clients == other.clients and \
+               self.fsal == other.fsal
+
     def __str__(self):
         s = "Export{Export_Id=%s;Path=%s;Pseudo=%s;Protocols=%s;Transports=%s;" % \
             (self.export_id, self.path, self.pseudo, self.protocols, self.transports)
@@ -24,41 +34,39 @@ class Export():
     def dict(self):
         client_dict = [c.dict() for c in self.clients]
         return {"export_id": self.export_id, "path": self.path, "pseudo": self.pseudo, "protocols": self.protocols, 
-                   "transports": self.transports, "client": client_dict, "fsal": self.fsal.dict()}
+                "transports": self.transports, "client": client_dict, "fsal": self.fsal.dict()}
 
     @staticmethod
     def parser(content):
-        result = re.search("Export_Id=(.+?);Path=(.+?);Pseudo=(.+?);Protocols=(.+?);Transports=(.+?);", content)
-        export_id = result.group(1)
-        path = result.group(2)
-        pseudo = result.group(3)
-        protocols = result.group(4)
-        transports = result.group(5)
+        # simple attribute
+        if isinstance(content, str):
+            result = re.search("Export_Id=(.+?);Path=(.+?);Pseudo=(.+?);Protocols=(.+?);Transports=(.+?);", content)
+            export_id = result.group(1)
+            path = result.group(2)
+            pseudo = result.group(3)
+            protocols = result.group(4)
+            transports = result.group(5)
+        if isinstance(content, dict):
+            export_id = content['export_id']
+            path = content['path']
+            pseudo = content['pseudo']
+            protocols = content['protocols']
+            transports = content['transports']
+       
+        # fsal attribute
+        if isinstance(content, str):
+            match = re.findall("FSAL{(?P<v>.+?)}", content)[0]
+            fsal = Fsal.parser(match) 
+        if isinstance(content, dict):
+            fsal = Fsal.parser(content["fsal"])
 
-        c = re.findall("FSAL{(?P<v>.+?)}", content)[0]
-        fsal = Fsal.parser(c) 
-
-        clients = []
-        for c in re.findall("CLIENT{(?P<v>.+?)}", content):
-            clients.append(Client.parser(c))
+        # client attribute
+        if isinstance(content, str):
+            clients = [Client.parser(c) for c in re.findall("CLIENT{(?P<v>.+?)}", content)]
+        if isinstance(content, dict):
+            clients = [Client.parser(c) for c in content['client']]
 
         return Export(export_id, path, clients, fsal, pseudo=pseudo, protocols=protocols, transports=transports)
-
-    @staticmethod
-    def parserJson(content):
-        export_id = content['export_id']
-        path = content['path']
-        pseudo = content['pseudo']
-        protocols = content['protocols']
-        transports = content['transports']
-
-        fsal = CephfsFsal()
-        clients = []
-        for c in content['client']:
-            clients.append(Client.parserJson(c))
-
-        return Export(export_id, path, clients, fsal, pseudo=pseudo, protocols=protocols, transports=transports)
-
 
 class AccessType():
     RW = "RW"
@@ -75,21 +83,22 @@ class Squash():
 class Fsal():
     @staticmethod 
     def parser(content):
-        if "name=ceph" in content.lower():
+        if isinstance(content, str):
+            is_ceph_fsal = "name=ceph" in content.lower()
+        elif isinstance(content, dict):
+            is_ceph_fsal = content['name'] == 'ceph'
+
+        if is_ceph_fsal:
             return CephfsFsal()
 
-        return RgwFsal.parser(content) 
-
-    @staticmethod
-    def parserJson(content):
-        if content['name'] == 'ceph':
-            return CephfsFsal()
-
-        return RgwFsal.parserJson(content)
+        return RgwFsal.parser(content)
 
 class CephfsFsal():
     def __str__(self):
         return "Name=CEPH;"
+
+    def __eq__(self, other):
+        return type(self) == type(other)
 
     def dict(self):
         return {"name": "ceph"}
@@ -99,6 +108,12 @@ class RgwFsal():
         self.user_id = user_id
         self.access_key = access_key
         self.secret_key = secret_key
+
+    def __eq__(self, other):
+        return type(self) == type(other) and \
+               self.user_id == other.user_id and \
+               self.access_key == other.access_key and \
+               self.secret_key == other.secret_key
 
     def __str__(self):
         return "Name=RGW;User_Id=%s;Access_Key_Id=%s;Secret_Access_Key=%s;" % \
@@ -110,17 +125,16 @@ class RgwFsal():
 
     @staticmethod
     def parser(content):
-        result = re.search("User_Id=(.+?);Access_Key_Id=(.+?);Secret_Access_Key=(.+?);", content)
-        user_id = result.group(1)
-        access_key = result.group(2)
-        secret_key = result.group(3)
-        return RgwFsal(user_id, access_key, secret_key)
+        if isinstance(content, str):
+            result = re.search("User_Id=(.+?);Access_Key_Id=(.+?);Secret_Access_Key=(.+?);", content)
+            user_id = result.group(1)
+            access_key = result.group(2)
+            secret_key = result.group(3)
+        elif isinstance(content, dict):
+            user_id = content['user_id']
+            access_key = content['access_key_id']
+            secret_key = content['secret_access_key']
 
-    @staticmethod
-    def parserJson(content):
-        user_id = content['user_id']
-        access_key = content['access_key_id']
-        secret_key = content['secret_access_key']
         return RgwFsal(user_id, access_key, secret_key)
 
 class Client():
@@ -128,6 +142,11 @@ class Client():
         self.cidrs = cidrs
         self.access_type = access_type
         self.squash = squash
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self.cidrs == other.cidrs and \
+               self.access_type == other.access_type and \
+               self.squash == other.squash
 
     def __str__(self):
         clients = ",".join(self.cidrs)
@@ -139,17 +158,16 @@ class Client():
 
     @staticmethod
     def parser(content):
-        result = re.search("Clients=(.+?);Squash=(.+?);Access_Type=(.+?);", content)
-        cidrs = result.group(1).split(',')
-        squash = result.group(2)
-        access_type = result.group(3)
-        return Client(cidrs, access_type=access_type, squash=squash)
+        if isinstance(content, str):
+            result = re.search("Clients=(.+?);Squash=(.+?);Access_Type=(.+?);", content)
+            cidrs = result.group(1).split(',')
+            squash = result.group(2)
+            access_type = result.group(3)
+        elif isinstance(content, dict):
+            cidrs = content['clients']
+            squash = content['squash']
+            access_type = content['access_type']
 
-    @staticmethod
-    def parserJson(content):
-        cidrs = content['clients']
-        squash = content['squash']
-        access_type = content['access_type']
         return Client(cidrs, access_type=access_type, squash=squash)
 
 class GaneshaConfig():
